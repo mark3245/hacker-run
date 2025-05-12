@@ -1,101 +1,133 @@
 const config = {
     type: Phaser.AUTO,
-    width: 360,
-    height: 640,
-    parent: 'game-container',
-    physics: {
-        default: 'arcade',
-        arcade: { debug: false }
-    },
+    width: 400,
+    height: 600,
     scene: {
-        preload,
-        create,
-        update
+        preload: preload,
+        create: create,
+        update: update
     }
 };
 
-const game = new Phaser.Game(config);
+let player;
+let cursors;
+let score = 0;
+let obstacles;
+let dataBonus;
+let shield;
+let turbo;
+let isTurboActive = false;
 
-let player, cursors, lanes = [80, 180, 280];
-let laneIndex = 1;
-let speed = 200;
-let obstacles, bonuses, score = 0, scoreText;
+let game = new Phaser.Game(config);
 
 function preload() {
     this.load.image('player', 'assets/player.png');
     this.load.image('firewall', 'assets/firewall.png');
     this.load.image('laser', 'assets/laser.png');
     this.load.image('glitch', 'assets/glitch.png');
-    this.load.image('data', 'assets/data_point.png');
+    this.load.image('data', 'assets/data.png');
     this.load.image('shield', 'assets/shield.png');
     this.load.image('turbo', 'assets/turbo.png');
-    this.load.image('bg', 'assets/background.jpg');
 }
 
 function create() {
-    this.add.tileSprite(0, 0, 360, 640, 'bg').setOrigin(0).setScrollFactor(0);
-    player = this.physics.add.sprite(lanes[laneIndex], 550, 'player').setCollideWorldBounds(true);
-    cursors = this.input.keyboard.createCursorKeys();
-
-    this.input.on('pointerup', handleSwipe, this);
-
+    player = this.physics.add.image(200, 550, 'player');
+    player.setCollideWorldBounds(true);
+    
     obstacles = this.physics.add.group();
-    bonuses = this.physics.add.group();
+    dataBonus = this.physics.add.group();
+    shield = this.physics.add.group();
+    turbo = this.physics.add.group();
 
-    this.time.addEvent({ delay: 1000, callback: spawnObstacle, callbackScope: this, loop: true });
-    this.time.addEvent({ delay: 3000, callback: spawnBonus, callbackScope: this, loop: true });
+    cursors = this.input.keyboard.createCursorKeys();
+    this.input.on('pointerdown', pointerDown, this);
 
-    scoreText = this.add.text(10, 10, 'Очки: 0', { font: '18px Arial', fill: '#fff' });
-}
-
-function update(time, delta) {
-    player.y -= speed * delta / 1000;
-
-    Phaser.Actions.IncY(obstacles.getChildren(), -speed * delta / 1000);
-    Phaser.Actions.IncY(bonuses.getChildren(), -speed * delta / 1000);
-
-    this.physics.world.wrap(player, 5);
-
-    this.physics.overlap(player, obstacles, hitObstacle, null, this);
-    this.physics.overlap(player, bonuses, collectBonus, null, this);
-
-    score += delta / 20;
-    scoreText.setText('Очки: ' + Math.floor(score));
-}
-
-function handleSwipe(pointer) {
-    const dx = pointer.upX - pointer.downX;
-    const dy = pointer.upY - pointer.downY;
-
-    if (Math.abs(dx) > Math.abs(dy)) {
-        if (dx > 30 && laneIndex < 2) laneIndex++;
-        else if (dx < -30 && laneIndex > 0) laneIndex--;
+    // Интеграция с Telegram API для отправки очков
+    if (window.Telegram && Telegram.WebApp) {
+        Telegram.WebApp.ready();
     }
 
-    player.x = lanes[laneIndex];
+    // Анимация меню
+    this.add.text(100, 100, 'Hacker Run', { fontSize: '32px', fill: '#fff' });
+    this.add.text(100, 150, 'Swipe to Play', { fontSize: '24px', fill: '#ff00ff' });
+
+    // Генерация препятствий
+    this.time.addEvent({
+        delay: 1000,
+        callback: spawnObstacle,
+        callbackScope: this,
+        loop: true
+    });
+}
+
+function update() {
+    // Управление через свайпы
+    if (cursors.left.isDown || Phaser.Input.Pointer.isDown) {
+        player.setVelocityX(-160);
+    } else if (cursors.right.isDown || Phaser.Input.Pointer.isDown) {
+        player.setVelocityX(160);
+    } else {
+        player.setVelocityX(0);
+    }
+
+    if (cursors.up.isDown) {
+        player.setVelocityY(-160);
+    } else if (cursors.down.isDown) {
+        player.setVelocityY(160);
+    } else {
+        player.setVelocityY(0);
+    }
+    
+    // Проверка столкновений
+    this.physics.world.collide(player, obstacles, hitObstacle, null, this);
+    this.physics.world.collide(player, dataBonus, collectData, null, this);
+    this.physics.world.collide(player, shield, collectShield, null, this);
+    this.physics.world.collide(player, turbo, collectTurbo, null, this);
+}
+
+function pointerDown(pointer) {
+    // Реализация свайпов
+    if (pointer.x < 200) {
+        player.setVelocityX(-160);
+    } else {
+        player.setVelocityX(160);
+    }
 }
 
 function spawnObstacle() {
-    const type = Phaser.Math.RND.pick(['firewall', 'laser']);
-    const x = Phaser.Math.RND.pick(lanes);
-    const obj = obstacles.create(x, 0, type);
-    obj.setVelocityY(speed);
-}
-
-function spawnBonus() {
-    const type = Phaser.Math.RND.pick(['data', 'shield', 'turbo']);
-    const x = Phaser.Math.RND.pick(lanes);
-    const bonus = bonuses.create(x, 0, type);
-    bonus.setVelocityY(speed);
+    const x = Phaser.Math.Between(50, 350);
+    const obstacle = obstacles.create(x, 0, 'firewall');
+    obstacle.setVelocityY(Phaser.Math.Between(100, 200));
 }
 
 function hitObstacle(player, obstacle) {
-    this.scene.pause();
-    alert('Игра окончена! Ваш результат: ' + Math.floor(score));
+    this.physics.pause();
+    score = Math.floor(score);
+
+    // Отправка очков в Telegram
+    if (window.Telegram && Telegram.WebApp) {
+        Telegram.WebApp.sendData(JSON.stringify({ score }));
+    }
+
+    alert(`Игра окончена! Ваш результат: ${score}`);
     location.reload();
 }
 
-function collectBonus(player, bonus) {
-    score += 100;
-    bonus.destroy();
+function collectData(player, data) {
+    data.destroy();
+    score += 10;
+}
+
+function collectShield(player, shield) {
+    shield.destroy();
+    player.setTint(0x00ff00);  // Покрасить игрока в зелёный
+    setTimeout(() => player.clearTint(), 3000);
+}
+
+function collectTurbo(player, turbo) {
+    turbo.destroy();
+    isTurboActive = true;
+    player.setVelocityX(320);
+    player.setVelocityY(320);
+    setTimeout(() => isTurboActive = false, 3000);
 }
