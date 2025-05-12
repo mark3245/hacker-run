@@ -1,14 +1,102 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Hacker Run</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <link rel="stylesheet" href="styles.css">
-  <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.js"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hacker Run</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.js"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body { margin: 0; background: black; }
+        canvas { display: block; margin: 0 auto; }
+    </style>
 </head>
 <body>
-  <div id="game-container"></div>
-  <script src="game.js"></script>
+    <script>
+        let score = 0;
+        let scoreText;
+
+        const TelegramGameProxy = (function () {
+            if (window.parent !== window) {
+                return {
+                    postScore: function (score) {
+                        window.parent.postMessage(JSON.stringify({ event: "set_score", score }), "*");
+                    },
+                };
+            }
+            return undefined;
+        })();
+
+        const config = {
+            type: Phaser.AUTO,
+            width: 360,
+            height: 640,
+            backgroundColor: '#000000',
+            physics: {
+                default: 'arcade',
+                arcade: {
+                    gravity: { y: 0 },
+                    debug: false
+                }
+            },
+            scene: {
+                preload: preload,
+                create: create,
+                update: update
+            }
+        };
+
+        const game = new Phaser.Game(config);
+
+        let player, cursors, obstacles;
+
+        function preload() {
+            this.load.image('player', 'assets/player.png');
+            this.load.image('obstacle', 'assets/obstacle.png');
+        }
+
+        function create() {
+            player = this.physics.add.sprite(180, 550, 'player').setCollideWorldBounds(true);
+
+            obstacles = this.physics.add.group();
+            this.time.addEvent({ delay: 1500, callback: spawnObstacle, callbackScope: this, loop: true });
+
+            scoreText = this.add.text(10, 10, 'Счёт: 0', { fontSize: '20px', fill: '#0f0' });
+            cursors = this.input.keyboard.createCursorKeys();
+
+            this.physics.add.collider(player, obstacles, hitObstacle, null, this);
+        }
+
+        function update() {
+            if (cursors.left.isDown) player.setVelocityX(-200);
+            else if (cursors.right.isDown) player.setVelocityX(200);
+            else player.setVelocityX(0);
+
+            score += 0.05;
+            scoreText.setText('Счёт: ' + Math.floor(score));
+        }
+
+        function spawnObstacle() {
+            const x = Phaser.Math.Between(50, 310);
+            const obstacle = obstacles.create(x, 0, 'obstacle');
+            obstacle.setVelocityY(200);
+        }
+
+        function hitObstacle(player, obstacle) {
+            this.physics.pause();
+            const finalScore = Math.floor(score);
+            const restart = confirm(`Игра окончена!\nВаш результат: ${finalScore}\n\nОтправить в Telegram?`);
+
+            if (restart) {
+                if (typeof TelegramGameProxy !== "undefined") {
+                    TelegramGameProxy.postScore(finalScore);
+                } else if (window.Telegram && Telegram.WebApp) {
+                    Telegram.WebApp.sendData(JSON.stringify({ score: finalScore }));
+                }
+            }
+
+            setTimeout(() => location.reload(), 1000);
+        }
+    </script>
 </body>
 </html>
