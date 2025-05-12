@@ -1,5 +1,3 @@
-
-// main.js — реализация Hacker Run
 const config = {
     type: Phaser.AUTO,
     parent: "game",
@@ -28,15 +26,15 @@ class MainScene extends Phaser.Scene {
     }
 
     preload() {
-        this.load.image("player", "assets/player.png");
-        this.load.image("firewall", "assets/firewall.png");
-        this.load.image("laser", "assets/laser.png");
-        this.load.image("glitch", "assets/glitch.png");
-        this.load.image("data", "assets/data.png");
-        this.load.image("shield", "assets/shield.png");
-        this.load.image("turbo", "assets/turbo.png");
-        this.load.image("background", "assets/background.png");
-    }
+      this.load.image('player', 'assets/player.png');
+      this.load.image('firewall', 'assets/firewall.png');
+      this.load.image('laser', 'assets/laser.png');
+      this.load.image('glitch', 'assets/glitch.png');
+      this.load.image('data', 'assets/data.png');
+      this.load.image('shield', 'assets/shield.png');
+      this.load.image('turbo', 'assets/turbo.png');
+      this.load.image('background', 'assets/background.png');
+  }
 
     create() {
         this.score = 0;
