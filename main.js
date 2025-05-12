@@ -1,3 +1,5 @@
+
+// main.js — реализация Hacker Run
 const config = {
     type: Phaser.AUTO,
     parent: "game",
