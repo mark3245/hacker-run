@@ -19,4 +19,14 @@ const config = {
   }
 };
 
+
+function sendScoreToBot(score) {
+  if (window.Telegram.WebApp) {
+    Telegram.WebApp.sendData(JSON.stringify({
+      user_id: Telegram.WebApp.initDataUnsafe.user?.id,
+      score: score
+    }));
+  }
+}
+
 const game = new Phaser.Game(config);
